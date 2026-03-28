@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -27,6 +27,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   // Refs to track dynamic markers
   const eventMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
   const userMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation } = useUIStore();
   const events = useSocketStore((state) => state.events);
@@ -49,6 +50,11 @@ export default function MapComponent({ className }: MapComponentProps) {
       style: CARTO_VOYAGER_STYLE,
       center: BARRANQUILLA_CENTER,
       zoom: DEFAULT_ZOOM,
+    });
+
+    mapRef.current.on("load", () => {
+      console.log("Map fully loaded");
+      setMapLoaded(true);
     });
 
     // Navigation controls (zoom +/-)
@@ -106,7 +112,7 @@ export default function MapComponent({ className }: MapComponentProps) {
 
   // Sync Event Markers
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapLoaded) return;
     
     console.log("Syncing event markers, current events count:", events.length);
 
@@ -140,11 +146,11 @@ export default function MapComponent({ className }: MapComponentProps) {
         delete eventMarkersRef.current[id];
       }
     });
-  }, [events]);
+  }, [events, mapLoaded]);
 
   // Sync Other User Markers
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapLoaded) return;
 
     Object.values(otherUsers).forEach(userData => {
       if (!userMarkersRef.current[userData.userId]) {
@@ -176,7 +182,7 @@ export default function MapComponent({ className }: MapComponentProps) {
         delete userMarkersRef.current[id];
       }
     });
-  }, [otherUsers]);
+  }, [otherUsers, mapLoaded]);
 
   return (
     <div

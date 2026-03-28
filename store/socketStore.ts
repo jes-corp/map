@@ -29,7 +29,7 @@ interface SocketState {
   otherUsers: Record<string, UserLocation>;
 
   // Actions
-  connect: (token: string) => void;
+  connect: (token?: string) => void;
   disconnect: () => void;
   emitCreateEvent: (eventData: Omit<Event, "id" | "userId">) => void;
   emitUpdateLocation: (location: { lat: number; lng: number }) => void;
@@ -41,16 +41,29 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   events: [],
   otherUsers: {},
 
-  connect: (token: string) => {
+  connect: (token?: string) => {
     const currentSocket = get().socket;
-    if (currentSocket) return;
 
-    console.log("Connecting to socket at:", API_URL);
-    const socket = io(API_URL, {
-      auth: {
+    // If already connected, we might need to reconnect if the token is new
+    if (currentSocket) {
+      if (token) {
+        console.log("Reconnecting with new token...");
+        currentSocket.disconnect();
+      } else {
+        return; // Already connected as guest or with token
+      }
+    }
+
+    console.log("Connecting to socket at:", API_URL, token ? "with token" : "as guest");
+
+    const socketOptions: any = {};
+    if (token) {
+      socketOptions.auth = {
         token: `Bearer ${token}`,
-      },
-    });
+      };
+    }
+
+    const socket = io(API_URL, socketOptions);
 
     socket.on("connect", () => {
       set({ isConnected: true });

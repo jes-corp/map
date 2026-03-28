@@ -9,6 +9,14 @@ import { useSocketStore } from "@/store/socketStore";
 import * as LucideIcons from "lucide-react";
 import { createRoot } from "react-dom/client";
 import React from "react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from "@/components/ui/context-menu";
+import { Plus } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
 
 const BARRANQUILLA_CENTER: [number, number] = [-74.7813, 10.9685];
 const DEFAULT_ZOOM = 14;
@@ -23,11 +31,14 @@ export default function MapComponent({ className }: MapComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const selectionMarkerRef = useRef<maplibregl.Marker | null>(null);
-  
+
   // Refs to track dynamic markers
   const eventMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
   const userMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [lastRightClickCoords, setLastRightClickCoords] = useState<{ lng: number, lat: number } | null>(null);
+
+  const user = useAuthStore(state => state.user);
 
   const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation } = useUIStore();
   const events = useSocketStore((state) => state.events);
@@ -65,13 +76,13 @@ export default function MapComponent({ className }: MapComponentProps) {
 
     // Current location button
     const geolocate = new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
     });
-    
+
     geolocate.on("geolocate", (e: any) => {
-        const { coords } = e;
-        emitUpdateLocation({ lat: coords.latitude, lng: coords.longitude });
+      const { coords } = e;
+      emitUpdateLocation({ lat: coords.latitude, lng: coords.longitude });
     });
 
     mapRef.current.addControl(geolocate, "bottom-right");
@@ -82,38 +93,52 @@ export default function MapComponent({ className }: MapComponentProps) {
       "bottom-left"
     );
 
-    mapRef.current.on("click", (e) => {
-      // Remove previous marker if exists
-      if (selectionMarkerRef.current) {
-        selectionMarkerRef.current.remove();
-      }
-
-      const lngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-      setSelectedLocation({ lng: e.lngLat.lng, lat: e.lngLat.lat });
-      setEventFormOpen(true);
-
-      // Create and store the new marker
-      selectionMarkerRef.current = new maplibregl.Marker()
-        .setLngLat(lngLat)
-        .addTo(mapRef.current!);
-    });
-
     // Cleanup on unmount
     return () => {
       mapRef.current?.remove();
       mapRef.current = null;
       selectionMarkerRef.current?.remove();
-      
+
       // Cleanup dynamic markers
       Object.values(eventMarkersRef.current).forEach(m => m.remove());
       Object.values(userMarkersRef.current).forEach(m => m.remove());
     };
   }, []);
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!mapRef.current) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Convert screen coordinates to map container coordinates
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const lngLat = mapRef.current.unproject([x, y]);
+    setLastRightClickCoords({ lng: lngLat.lng, lat: lngLat.lat });
+  };
+
+  const handleCreateEvent = () => {
+    if (!lastRightClickCoords || !mapRef.current) return;
+
+    // Set selected location and open form
+    setSelectedLocation(lastRightClickCoords);
+    setEventFormOpen(true);
+
+    // Create and store the new selection marker
+    if (selectionMarkerRef.current) {
+      selectionMarkerRef.current.remove();
+    }
+
+    selectionMarkerRef.current = new maplibregl.Marker()
+      .setLngLat([lastRightClickCoords.lng, lastRightClickCoords.lat])
+      .addTo(mapRef.current);
+  };
+
   // Sync Event Markers
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
-    
+
     console.log("Syncing event markers, current events count:", events.length);
 
     // Create new markers or skip existing
@@ -121,7 +146,7 @@ export default function MapComponent({ className }: MapComponentProps) {
       if (!eventMarkersRef.current[event.id]) {
         console.log("Creating marker for event:", event.title, "at", event.lat, event.lng);
         const el = document.createElement('div');
-        
+
         // Render icon
         const IconComponent = (LucideIcons as any)[event.icon] || LucideIcons.MapPin;
         const root = createRoot(el);
@@ -156,7 +181,7 @@ export default function MapComponent({ className }: MapComponentProps) {
       if (!userMarkersRef.current[userData.userId]) {
         const el = document.createElement('div');
         el.className = 'w-8 h-8 flex items-center justify-center bg-blue-500 text-white rounded-full shadow-md border-2 border-white';
-        
+
         const root = createRoot(el);
         root.render(React.createElement(LucideIcons.User, { size: 16 }));
 
@@ -185,10 +210,22 @@ export default function MapComponent({ className }: MapComponentProps) {
   }, [otherUsers, mapLoaded]);
 
   return (
-    <div
-      ref={containerRef}
-      className={className ?? "w-full h-full"}
-      aria-label="Mapa interactivo de Barranquilla"
-    />
+    <ContextMenu>
+      <ContextMenuTrigger onContextMenu={handleContextMenu} className="w-full h-full block">
+        <div
+          ref={containerRef}
+          className={className ?? "w-full h-full"}
+          aria-label="Mapa interactivo de Barranquilla"
+        />
+      </ContextMenuTrigger>
+      {user && (
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={handleCreateEvent} className="gap-2">
+            <Plus className="w-4 h-4" />
+            <span>Crear evento aquí</span>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
   );
 }

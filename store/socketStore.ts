@@ -62,13 +62,21 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
         // Listen for new events from others
         socket.on("event_created", (newEvent: Event) => {
+            console.log("New event received via socket:", newEvent);
             set((state) => ({
                 events: [newEvent, ...state.events],
             }));
         });
 
+        // Listen for all events (initial or periodic refresh)
+        socket.on("all_events", (allEvents: Event[]) => {
+            console.log("All events received via socket:", allEvents);
+            set({ events: allEvents });
+        });
+
         // Listen for other users moving
         socket.on("user_location_updated", (userData: UserLocation) => {
+            console.log("User location updated via socket:", userData);
             set((state) => ({
                 otherUsers: {
                     ...state.otherUsers,

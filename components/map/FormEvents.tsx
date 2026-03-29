@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Input } from "../ui/input";
@@ -10,7 +10,7 @@ import { useSocketStore } from "@/store/socketStore";
 import { useRouteStore } from "@/store/routeStore";
 
 export default function FormEvents() {
-    const { isEventFormOpen, selectedLocation, setEventFormOpen, resetEventForm } = useUIStore();
+    const { isEventFormOpen, selectedLocation, setEventFormOpen, resetEventForm, selectedEvent, setSelectedLocation } = useUIStore();
     const isRoutingMode = useRouteStore((state) => state.isRoutingMode);
     const emitCreateEvent = useSocketStore(state => state.emitCreateEvent);
     const [selectedIcon, setSelectedIcon] = useState<string>("Map");
@@ -93,6 +93,24 @@ export default function FormEvents() {
         }
     };
 
+    // Sync form with selected event for editing
+    useEffect(() => {
+        if (selectedEvent && isEventFormOpen) {
+            setTitle(selectedEvent.title);
+            setDescription(selectedEvent.description);
+            setDatetime(selectedEvent.datetime);
+            setSelectedIcon(selectedEvent.icon);
+            setSelectedLocation({ lat: selectedEvent.lat, lng: selectedEvent.lng });
+        }
+    }, [selectedEvent, isEventFormOpen, setSelectedLocation]);
+
+    // Cleanup when closing
+    useEffect(() => {
+        if (!isEventFormOpen) {
+            // handleReset(); // This might be too aggressive if we're just toggling
+        }
+    }, [isEventFormOpen]);
+
     // Hide when in routing mode
     if (isRoutingMode) return null;
     if (!isEventFormOpen) return null;
@@ -153,9 +171,13 @@ export default function FormEvents() {
 
                     <CardHeader className="pb-3 relative">
 
-                        <CardTitle className="text-xl font-bold tracking-tight">Crear evento</CardTitle>
+                        <CardTitle className="text-xl font-bold tracking-tight">
+                            {selectedEvent ? 'Editar evento' : 'Crear evento'}
+                        </CardTitle>
                         <CardDescription>
-                            Completa los campos para añadir un nuevo evento al mapa.
+                            {selectedEvent 
+                                ? 'Modifica los campos necesarios para actualizar el evento.' 
+                                : 'Completa los campos para añadir un nuevo evento al mapa.'}
                         </CardDescription>
                     </CardHeader>
 
@@ -265,10 +287,10 @@ export default function FormEvents() {
                             {isSubmitting ? (
                                 <span className="flex items-center gap-2">
                                     <div className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                                    Creando...
+                                    {selectedEvent ? 'Actualizando...' : 'Creando...'}
                                 </span>
                             ) : (
-                                "Crear evento"
+                                selectedEvent ? "Actualizar evento" : "Crear evento"
                             )}
                         </Button>
                     </CardFooter>

@@ -3,6 +3,7 @@
 import CreateEvent from "@/components/CreateEvent";
 import DynamicMap from "@/components/map/DynamicMap";
 import FormEvents from "@/components/map/FormEvents";
+import EventInformation from "@/components/map/EventInformation";
 import MapHeader from "@/components/map/Header";
 import RoutePanel from "@/components/map/RoutePanel";
 import GlobalSearchBar from "@/components/map/GlobalSearchBar";
@@ -16,8 +17,9 @@ export default function MapPage() {
         <GlobalSearchBar />
         <CreateEvent />
         <FormEvents />
+        <EventInformation />
         <RoutePanel />
       </main>
     </>
   );
-}
+}

@@ -83,7 +83,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   const routeMarkersRef = useRef<maplibregl.Marker[]>([]);
   const styleLoadedRef = useRef(false);
 
-  const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation } = useUIStore();
+  const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation, setSelectedEvent } = useUIStore();
   const events = useSocketStore((state) => state.events);
   const otherUsers = useSocketStore((state) => state.otherUsers);
   const emitUpdateLocation = useSocketStore((state) => state.emitUpdateLocation);
@@ -252,8 +252,8 @@ export default function MapComponent({ className }: MapComponentProps) {
       const color = isFirst
         ? WAYPOINT_COLORS.first
         : isLast
-        ? WAYPOINT_COLORS.last
-        : WAYPOINT_COLORS.mid;
+          ? WAYPOINT_COLORS.last
+          : WAYPOINT_COLORS.mid;
 
       // Custom marker element
       const el = document.createElement("div");
@@ -360,16 +360,29 @@ export default function MapComponent({ className }: MapComponentProps) {
         console.log("Creating marker for event:", event.title, "at", event.lat, event.lng);
         const el = document.createElement('div');
 
+        // Check if event belongs to current user
+        const isOwner = user && (event.userId === user.sub || event.userId === user.id);
+
+        el.className = `flex items-center justify-center rounded-full w-8 h-8 shadow-lg border-2 pointer-events-auto 
+        ${isOwner ? 'bg-blue-500 text-primary-foreground border-white' : 'bg-primary text-primary-foreground border-black/50'
+          }`;
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'pointer';
+
         // Render icon
         const IconComponent = (LucideIcons as any)[event.icon] || LucideIcons.MapPin;
         const root = createRoot(el);
-        root.render(React.createElement(IconComponent as React.FC<any>, { size: 20 }));
+        root.render(React.createElement(IconComponent as React.FC<any>, { size: 18, style: { pointerEvents: 'none' } }));
+
+        // Click handler to select event
+        el.addEventListener('click', (e) => {
+          console.log("Marker clicked:", event.title);
+          e.stopPropagation();
+          setSelectedEvent(event);
+        });
 
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat([event.lng, event.lat])
-          .setPopup(new maplibregl.Popup({ offset: 25 })
-            .setHTML(`<strong>${event.title}</strong><p>${event.description}</p>`)
-          )
           .addTo(mapRef.current!);
 
         eventMarkersRef.current[event.id] = marker;

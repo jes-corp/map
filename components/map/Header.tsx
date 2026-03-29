@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSocketStore } from "@/store/socketStore";
+import GlobalSearchBar from "./GlobalSearchBar";
 
 export default function MapHeader() {
     const router = useRouter();
@@ -13,7 +14,7 @@ export default function MapHeader() {
             <div className="flex flex-row items-center justify-between w-full max-w-7xl pt-10">
 
                 <div className="text-2xl font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-default">
-                    MAP
+                    <GlobalSearchBar />
                 </div>
 
                 <div className="flex flex-row items-center gap-2">

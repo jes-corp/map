@@ -92,7 +92,7 @@ export default function GlobalSearchBar() {
   const showDropdown = isFocused && suggestions.length > 0;
 
   return (
-    <div ref={containerRef} className="fixed top-16 left-4 z-30 w-80">
+    <div ref={containerRef} className="">
       {/* Search bar */}
       <div className="flex items-center bg-white rounded-lg shadow-lg px-3 py-2.5 border border-zinc-200">
         <Search className="w-4 h-4 text-gray-400 shrink-0" />

@@ -100,7 +100,7 @@ export default function FormEvents() {
             setDescription(selectedEvent.description);
             setDatetime(selectedEvent.datetime);
             setSelectedIcon(selectedEvent.icon);
-            setSelectedLocation({ lat: selectedEvent.lat, lng: selectedEvent.lng });
+            setSelectedLocation({ lat: parseFloat(String(selectedEvent.lat)), lng: parseFloat(String(selectedEvent.lng)) });
         }
     }, [selectedEvent, isEventFormOpen, setSelectedLocation]);
 

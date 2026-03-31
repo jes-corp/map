@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useSocketStore } from "@/store/socketStore";
 import { getCookie } from "@/store/authStore";
 import * as LucideIcons from "lucide-react";
+import { useToast } from "../ui/toast";
 import React, { useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -17,6 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function EventInformation() {
     const { isEventInfoOpen, selectedEvent, setEventInfoOpen, setEventFormOpen, setSelectedEvent } = useUIStore();
     const user = useAuthStore(state => state.user);
+    const { showToast } = useToast();
     const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
     if (!isEventInfoOpen || !selectedEvent) return null;
@@ -49,6 +51,7 @@ export default function EventInformation() {
                 
                 // Update selected event in UI store
                 setSelectedEvent(updatedEvent);
+                showToast("Asistencia confirmada");
                 
                 // Update events list in Socket store to reflect changes globally (markers, profile, etc)
                 const socketStore = useSocketStore.getState();

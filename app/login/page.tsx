@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user, isLoading, login } = useAuthStore();
+  const { showToast } = useToast();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -36,6 +38,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await login({ identifier, password });
+      showToast("Sesión iniciada correctamente");
       router.push("/profile");
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");

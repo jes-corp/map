@@ -10,6 +10,7 @@ import { useSocketStore } from "@/store/socketStore";
 import { useRouteStore } from "@/store/routeStore";
 import { hybridGeocode, reverseGeocode } from "@/lib/geocoding";
 import * as LucideIcons from "lucide-react";
+import { useToast } from "../ui/toast";
 
 export default function FormEvents() {
     const { isEventFormOpen, selectedLocation, setEventFormOpen, resetEventForm, selectedEvent, setSelectedLocation } = useUIStore();
@@ -17,6 +18,7 @@ export default function FormEvents() {
     const emitCreateEvent = useSocketStore(state => state.emitCreateEvent);
     const emitUpdateEvent = useSocketStore(state => state.emitUpdateEvent);
     const emitDeleteEvent = useSocketStore(state => state.emitDeleteEvent);
+    const { showToast } = useToast();
 
     const [selectedIcon, setSelectedIcon] = useState<string>("Map");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export default function FormEvents() {
                 // Close form and reset
                 setEventFormOpen(false);
                 handleReset();
+                showToast(selectedEvent ? "Evento actualizado correctamente" : "Evento creado correctamente");
             } else {
                 setErrors({ server: response.message });
             }
@@ -129,6 +132,7 @@ export default function FormEvents() {
             if (response.success) {
                 setEventFormOpen(false);
                 handleReset();
+                showToast("Evento eliminado correctamente");
             } else {
                 setErrors({ server: response.message });
             }

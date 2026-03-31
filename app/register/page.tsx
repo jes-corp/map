@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { register, user, isLoading } = useAuthStore();
+  const { showToast } = useToast();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -45,6 +47,7 @@ export default function RegisterPage() {
     setError(null);
     try {
       await register(formData);
+      showToast("Cuenta creada correctamente");
       router.push("/profile");
     } catch (err: any) {
       setError(err.message || "Error al registrarse");

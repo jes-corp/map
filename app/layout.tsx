@@ -7,6 +7,7 @@ import { SocketInitializer } from "@/components/SocketInitializer";
 
 
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +38,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthInitializer>
-            <SocketInitializer>{children}</SocketInitializer>
+            <SocketInitializer>
+            <ToastProvider>{children}</ToastProvider>
+          </SocketInitializer>
           </AuthInitializer>
         </ThemeProvider>
       </body>

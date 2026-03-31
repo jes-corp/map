@@ -52,7 +52,7 @@ export default function MapHeader() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="flex-shrink-0 rounded-full cursor-pointer h-10 w-10 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md shadow-sm border border-zinc-200 dark:border-zinc-700"
+                        className="shrink-0 rounded-full cursor-pointer h-10 w-10 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md shadow-sm border border-zinc-200 dark:border-zinc-700"
                         onClick={() => router.push("/profile")}
                         data-intro="Accede a tu perfil para gestionar tus eventos y configuración."
                         data-step="5"

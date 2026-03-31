@@ -128,8 +128,8 @@ const WAYPOINT_COLORS = {
   mid: "#6366f1",    // indigo
 };
 
-const BARRANQUILLA_CENTER: [number, number] = [-74.7813, 10.9685];
-const DEFAULT_ZOOM = 14;
+const FALLBACK_CENTER: [number, number] = [-74.7813, 10.9685];
+const FALLBACK_ZOOM = 14;
 const CARTO_VOYAGER_STYLE =
   "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 const CARTO_DARK_MATTER_STYLE =
@@ -152,7 +152,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   useEffect(() => {
     const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     setResolvedTheme(isDark ? 'dark' : 'light');
-    
+
     if (theme === "system") {
       const matcher = window.matchMedia("(prefers-color-scheme: dark)");
       const onChange = (e: MediaQueryListEvent) => setResolvedTheme(e.matches ? 'dark' : 'light');
@@ -173,7 +173,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   const routeMarkersRef = useRef<maplibregl.Marker[]>([]);
   const styleLoadedRef = useRef(false);
 
-  const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation, setSelectedEvent, openEventForm } = useUIStore();
+  const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation, setSelectedEvent, openEventForm, mapView, setMapView } = useUIStore();
   const events = useSocketStore((state) => state.events);
   const otherUsers = useSocketStore((state) => state.otherUsers);
   const emitUpdateLocation = useSocketStore((state) => state.emitUpdateLocation);
@@ -214,7 +214,7 @@ export default function MapComponent({ className }: MapComponentProps) {
         el.innerHTML = `<div class="w-full h-full bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-inner">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.136-7.374 11.71a1 1 0 0 1-1.252 0C9.539 20.136 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
         </div>`;
-        
+
         selectionMarkerRef.current = new maplibregl.Marker({ element: el })
           .setLngLat([selectedLocation.lng, selectedLocation.lat])
           .addTo(mapRef.current);
@@ -248,7 +248,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
     const styleUrl = resolvedTheme === "dark" ? CARTO_DARK_MATTER_STYLE : CARTO_VOYAGER_STYLE;
-    
+
     fetch(styleUrl)
       .then((r) => r.json())
       .then((styleJson) => {
@@ -261,8 +261,8 @@ export default function MapComponent({ className }: MapComponentProps) {
     if (!containerRef.current || mapRef.current) return;
 
     // Obtener estilo instanciado de una vez para evitar flash
-    const initialStyleUrl = resolvedTheme === "dark" 
-      ? CARTO_DARK_MATTER_STYLE 
+    const initialStyleUrl = resolvedTheme === "dark"
+      ? CARTO_DARK_MATTER_STYLE
       : CARTO_VOYAGER_STYLE;
 
     // Fetch style and inject projection for MapLibre v5 compatibility
@@ -276,8 +276,8 @@ export default function MapComponent({ className }: MapComponentProps) {
         const map = new maplibregl.Map({
           container: containerRef.current,
           style: styleJson,
-          center: BARRANQUILLA_CENTER,
-          zoom: DEFAULT_ZOOM,
+          center: mapView.center,
+          zoom: mapView.zoom,
         });
 
         map.on("load", () => {
@@ -304,10 +304,12 @@ export default function MapComponent({ className }: MapComponentProps) {
           );
         }
 
-        // Track map center for Photon location biasing
+        // Track map center for Photon location biasing and persistence
         map.on("moveend", () => {
           const c = map.getCenter();
+          const z = map.getZoom();
           useRouteStore.getState().setMapCenter([c.lng, c.lat]);
+          setMapView([c.lng, c.lat], z);
         });
 
         map.on("click", (e) => {

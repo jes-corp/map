@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export type TransportMode = "driving" | "cycling" | "foot";
 
@@ -44,6 +45,7 @@ interface RouteState {
   transportMode: TransportMode;
   pendingFlyTo: { center: [number, number]; zoom: number } | null;
   mapCenter: [number, number]; // [lng, lat] — for Photon biasing
+  zoom: number;
   /** Last location picked from GlobalSearchBar — ready for the backend */
   selectedLocation: SelectedLocation | null;
   userLocation: [number, number] | null; // [lng, lat]
@@ -62,6 +64,7 @@ interface RouteState {
   setPendingFlyTo: (lngLat: [number, number], zoom?: number) => void;
   consumePendingFlyTo: () => void;
   setMapCenter: (lngLat: [number, number]) => void;
+  setZoom: (zoom: number) => void;
   setSelectedLocation: (loc: SelectedLocation | null) => void;
 }
 
@@ -69,91 +72,105 @@ function coordsToText(lngLat: [number, number]): string {
   return `${lngLat[1].toFixed(5)}, ${lngLat[0].toFixed(5)}`;
 }
 
-export const useRouteStore = create<RouteState>((set) => ({
-  waypoints: [],
-  routeInfo: null,
-  isRouteMenuOpen: false,
-  isRoutingMode: false,
-  transportMode: "driving",
-  pendingFlyTo: null,
-  mapCenter: [-74.7813, 10.9685], // Barranquilla default
-  selectedLocation: null,
-  userLocation: null,
-
-  addWaypoint: (lngLat, displayText, streetName) =>
-    set((state) => ({
-      waypoints: [
-        ...state.waypoints,
-        {
-          lngLat,
-          label: String.fromCharCode(65 + state.waypoints.length),
-          displayText: displayText || coordsToText(lngLat),
-          streetName: streetName || displayText,
-          exactCoords: lngLat,
-        },
-      ],
-    })),
-
-  updateWaypointLngLat: (index, lngLat, displayText, streetName) =>
-    set((state) => ({
-      waypoints: state.waypoints.map((wp, i) =>
-        i === index
-          ? {
-              ...wp,
-              lngLat,
-              displayText: displayText || coordsToText(lngLat),
-              streetName: streetName || displayText,
-              exactCoords: lngLat,
-            }
-          : wp
-      ),
-      // Force route recalculation
-      routeInfo: null,
-    })),
-
-  updateWaypointText: (index, text) =>
-    set((state) => ({
-      waypoints: state.waypoints.map((wp, i) =>
-        i === index ? { ...wp, displayText: text } : wp
-      ),
-    })),
-
-  removeWaypoint: (index) =>
-    set((state) => {
-      const newWaypoints = state.waypoints.filter((_, i) => i !== index);
-      return {
-        waypoints: newWaypoints.map((wp, i) => ({
-          ...wp,
-          label: String.fromCharCode(65 + i),
-        })),
-        routeInfo: newWaypoints.length < 2 ? null : state.routeInfo,
-      };
-    }),
-
-  clearRoute: () =>
-    set({
+export const useRouteStore = create<RouteState>()(
+  persist(
+    (set) => ({
       waypoints: [],
       routeInfo: null,
       isRouteMenuOpen: false,
-    }),
+      isRoutingMode: false,
+      transportMode: "driving",
+      pendingFlyTo: null,
+      mapCenter: [-74.7813, 10.9685], // Barranquilla default
+      zoom: 14,
+      selectedLocation: null,
+      userLocation: null,
 
-  setRouteInfo: (info) => set({ routeInfo: info }),
-  setRouteMenuOpen: (open) => set({ isRouteMenuOpen: open }),
-  setRoutingMode: (active) =>
-    set({
-      isRoutingMode: active,
-      ...(active
-        ? {}
-        : {
-            waypoints: [],
-            routeInfo: null,
-            isRouteMenuOpen: false,
-          }),
+      addWaypoint: (lngLat, displayText, streetName) =>
+        set((state) => ({
+          waypoints: [
+            ...state.waypoints,
+            {
+              lngLat,
+              label: String.fromCharCode(65 + state.waypoints.length),
+              displayText: displayText || coordsToText(lngLat),
+              streetName: streetName || displayText,
+              exactCoords: lngLat,
+            },
+          ],
+        })),
+
+      updateWaypointLngLat: (index, lngLat, displayText, streetName) =>
+        set((state) => ({
+          waypoints: state.waypoints.map((wp, i) =>
+            i === index
+              ? {
+                ...wp,
+                lngLat,
+                displayText: displayText || coordsToText(lngLat),
+                streetName: streetName || displayText,
+                exactCoords: lngLat,
+              }
+              : wp
+          ),
+          // Force route recalculation
+          routeInfo: null,
+        })),
+
+      updateWaypointText: (index, text) =>
+        set((state) => ({
+          waypoints: state.waypoints.map((wp, i) =>
+            i === index ? { ...wp, displayText: text } : wp
+          ),
+        })),
+
+      removeWaypoint: (index) =>
+        set((state) => {
+          const newWaypoints = state.waypoints.filter((_, i) => i !== index);
+          return {
+            waypoints: newWaypoints.map((wp, i) => ({
+              ...wp,
+              label: String.fromCharCode(65 + i),
+            })),
+            routeInfo: newWaypoints.length < 2 ? null : state.routeInfo,
+          };
+        }),
+
+      clearRoute: () =>
+        set({
+          waypoints: [],
+          routeInfo: null,
+          isRouteMenuOpen: false,
+        }),
+
+      setRouteInfo: (info) => set({ routeInfo: info }),
+      setRouteMenuOpen: (open) => set({ isRouteMenuOpen: open }),
+      setRoutingMode: (active) =>
+        set({
+          isRoutingMode: active,
+          ...(active
+            ? {}
+            : {
+              waypoints: [],
+              routeInfo: null,
+              isRouteMenuOpen: false,
+            }),
+        }),
+      setTransportMode: (mode) => set({ transportMode: mode, routeInfo: null }),
+      setPendingFlyTo: (lngLat, zoom = 18) => set({ pendingFlyTo: { center: lngLat, zoom } }),
+      consumePendingFlyTo: () => set({ pendingFlyTo: null }),
+      setMapCenter: (lngLat) => set({ mapCenter: lngLat }),
+      setZoom: (zoom) => set({ zoom }),
+      setSelectedLocation: (loc) => set({ selectedLocation: loc }),
+      setUserLocation: (lngLat) => set({ userLocation: lngLat }),
     }),
-  setTransportMode: (mode) => set({ transportMode: mode, routeInfo: null }),
-  setPendingFlyTo: (lngLat, zoom = 18) => set({ pendingFlyTo: { center: lngLat, zoom } }),
-  consumePendingFlyTo: () => set({ pendingFlyTo: null }),
-  setMapCenter: (lngLat) => set({ mapCenter: lngLat }),
-  setSelectedLocation: (loc) => set({ selectedLocation: loc }),
-  setUserLocation: (lngLat) => set({ userLocation: lngLat }),
-}));
+    {
+      name: "route-storage",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        mapCenter: state.mapCenter,
+        zoom: state.zoom,
+      }),
+    }
+  )
+);

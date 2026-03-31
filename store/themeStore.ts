@@ -11,7 +11,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: "system", // Valor por defecto
+      theme: "dark", // Valor por defecto
       setTheme: (theme) => {
         set({ theme });
         // Sincronizar inmediatamente con Tailwind

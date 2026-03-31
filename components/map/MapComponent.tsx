@@ -183,13 +183,34 @@ export default function MapComponent({ className }: MapComponentProps) {
     }
   }, [pendingFlyTo]);
 
-  // Cleanup marker when selection is cleared
+  // Sync selection marker with selectedLocation
   useEffect(() => {
-    if (!selectedLocation && selectionMarkerRef.current) {
-      selectionMarkerRef.current.remove();
-      selectionMarkerRef.current = null;
+    if (!mapRef.current || !mapLoaded) return;
+
+    if (selectedLocation) {
+      if (!selectionMarkerRef.current) {
+        // Create marker if it doesn't exist
+        const el = document.createElement('div');
+        el.className = 'w-10 h-10 flex items-center justify-center p-1.5 bg-white/90 backdrop-blur rounded-full shadow-2xl border-2 border-primary z-30 animate-in zoom-in duration-300';
+        el.innerHTML = `<div class="w-full h-full bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.136-7.374 11.71a1 1 0 0 1-1.252 0C9.539 20.136 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>`;
+        
+        selectionMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat([selectedLocation.lng, selectedLocation.lat])
+          .addTo(mapRef.current);
+      } else {
+        // Update marker position
+        selectionMarkerRef.current.setLngLat([selectedLocation.lng, selectedLocation.lat]);
+      }
+    } else {
+      // Clear marker
+      if (selectionMarkerRef.current) {
+        selectionMarkerRef.current.remove();
+        selectionMarkerRef.current = null;
+      }
     }
-  }, [selectedLocation]);
+  }, [selectedLocation, mapLoaded]);
 
   // Mutual exclusion: routing mode ↔ event form
   useEffect(() => {

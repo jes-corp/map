@@ -8,6 +8,8 @@ import { Field, FieldLabel } from "../ui/field";
 import { useUIStore } from "@/store/ui";
 import { useSocketStore } from "@/store/socketStore";
 import { useRouteStore } from "@/store/routeStore";
+import { hybridGeocode, reverseGeocode } from "@/lib/geocoding";
+import * as LucideIcons from "lucide-react";
 
 export default function FormEvents() {
     const { isEventFormOpen, selectedLocation, setEventFormOpen, resetEventForm, selectedEvent, setSelectedLocation } = useUIStore();
@@ -17,6 +19,23 @@ export default function FormEvents() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [addressInput, setAddressInput] = useState("");
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+
+    const { setPendingFlyTo, mapCenter } = useRouteStore();
+    
+    // Cleanup when closing form
+    useEffect(() => {
+        if (!isEventFormOpen) {
+            setAddressInput("");
+            setSelectedLocation(null);
+            setSuggestions([]);
+            setIsInputFocused(false);
+            resetEventForm();
+        }
+    }, [isEventFormOpen, setSelectedLocation, resetEventForm]);
 
     // Form states for manual reset
     const [title, setTitle] = useState("");
@@ -93,6 +112,43 @@ export default function FormEvents() {
         }
     };
 
+    // Reverse geocode when map location changes
+    useEffect(() => {
+        if (selectedLocation && !isGeocoding) {
+            const timer = setTimeout(async () => {
+                const label = await reverseGeocode([selectedLocation.lng, selectedLocation.lat]);
+                if (label) setAddressInput(label);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedLocation, reverseGeocode]);
+
+    // Forward geocode when typing address
+    useEffect(() => {
+        if (!addressInput || !isEventFormOpen) {
+            setSuggestions([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            // Avoid geocoding if it looks like a coordinate string or we just selected one
+            if (/^-?\d+\.\d+, -?\d+\.\d+$/.test(addressInput)) return;
+
+            setIsGeocoding(true);
+            try {
+                const bias = mapCenter ? { lng: mapCenter[0], lat: mapCenter[1] } : { lng: -74.7813, lat: 10.9685 };
+                const results = await hybridGeocode(addressInput, bias, new AbortController().signal, 5);
+                setSuggestions(results);
+            } catch (err) {
+                console.error("Geocoding error:", err);
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [addressInput, hybridGeocode, isEventFormOpen, mapCenter]);
+
     // Sync form with selected event for editing
     useEffect(() => {
         if (selectedEvent && isEventFormOpen) {
@@ -100,16 +156,21 @@ export default function FormEvents() {
             setDescription(selectedEvent.description);
             setDatetime(selectedEvent.datetime);
             setSelectedIcon(selectedEvent.icon);
-            setSelectedLocation({ lat: parseFloat(String(selectedEvent.lat)), lng: parseFloat(String(selectedEvent.lng)) });
+            const loc = { lat: parseFloat(String(selectedEvent.lat)), lng: parseFloat(String(selectedEvent.lng)) };
+            setSelectedLocation(loc);
+            // Initialize address input if editing
+            reverseGeocode([loc.lng, loc.lat]).then((label: string | null) => {
+                if (label) setAddressInput(label);
+            });
         } else if (!selectedEvent && isEventFormOpen) {
-            // Creating a new event — reset all text fields but keep selectedLocation
             setTitle("");
             setDescription("");
             setDatetime("");
             setSelectedIcon("Map");
             setErrors({});
+            // Don't reset addressInput here if it was just set by a map click before open
         }
-    }, [selectedEvent, isEventFormOpen, setSelectedLocation]);
+    }, [selectedEvent, isEventFormOpen, setSelectedLocation, reverseGeocode]);
 
     // Cleanup when closing
     useEffect(() => {
@@ -222,15 +283,78 @@ export default function FormEvents() {
                                 <Label htmlFor="place" className="flex items-center gap-1.5 text-foreground/80 font-semibold text-xs uppercase tracking-wider">
                                     <MapPin className="w-3.5 h-3.5 text-primary" /> Lugar / Ubicación
                                 </Label>
-                                <Input
-                                    id="place"
-                                    value={locationValue}
-                                    readOnly
-                                    placeholder="Selecciona una ubicación en el mapa"
-                                    required
-                                    className={`h-9 bg-muted/30 cursor-not-allowed ${errors.location ? 'border-destructive' : ''}`}
-                                />
-                                {errors.location && <p className="text-[10px] font-medium text-destructive mt-0.5">{errors.location}</p>}
+                                <div className="relative group/input">
+                                    <Input
+                                        id="place"
+                                        value={addressInput}
+                                        onChange={(e) => setAddressInput(e.target.value)}
+                                        onFocus={() => {
+                                            setIsInputFocused(true);
+                                            // Re-trigger search if input has value
+                                            if (addressInput && suggestions.length === 0) setAddressInput(addressInput + " ");
+                                        }}
+                                        onBlur={() => {
+                                            // Pequeño retardo para permitir que el clic en la sugerencia se registre
+                                            setTimeout(() => setIsInputFocused(false), 200);
+                                        }}
+                                        placeholder="Escribe una dirección o selecciona en el mapa"
+                                        required
+                                        className={`h-11 pr-10 transition-all duration-300 ${errors.location ? 'border-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.2)]' : 'focus:border-primary/50'}`}
+                                    />
+                                    {isGeocoding && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <div className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                                        </div>
+                                    )}
+
+                                    {/* Suggestions Dropdown */}
+                                    {isInputFocused && suggestions.length > 0 && (
+                                        <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-background/95 backdrop-blur-md border border-muted-foreground/20 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="max-h-[220px] overflow-y-auto">
+                                                {suggestions.map((res, i) => (
+                                                    <button
+                                                        key={`${i}-${res.fullAddress}`}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedLocation({ lat: res.coords[1], lng: res.coords[0] });
+                                                            setAddressInput(res.fullAddress);
+                                                            setPendingFlyTo(res.coords, 18);
+                                                            setSuggestions([]);
+                                                        }}
+                                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors border-b border-muted last:border-0 group/item"
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="mt-1 p-1 rounded-md bg-muted group-hover/item:bg-primary/20 group-hover/item:text-primary transition-colors">
+                                                                <MapPin className="w-3.5 h-3.5" />
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-semibold text-foreground/90 leading-snug">{res.street}</span>
+                                                                <span className="text-[11px] text-muted-foreground line-clamp-1">{res.subtitle || res.fullAddress}</span>
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="bg-muted/30 px-4 py-2 border-t border-muted/50">
+                                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1.5 uppercase tracking-widest">
+                                                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500/20" /> Resultados en tiempo real
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="absolute -bottom-2 right-4 translate-y-full opacity-0 group-focus-within/input:opacity-100 transition-opacity">
+                                        <span className="text-[9px] font-bold text-primary/60 bg-background px-2 py-0.5 rounded-full border border-primary/20 shadow-sm uppercase tracking-tighter">
+                                            Buscando en Barranquilla...
+                                        </span>
+                                    </div>
+                                </div>
+                                {errors.location && <p className="text-[10px] font-medium text-destructive mt-1 flex items-center gap-1 leading-tight">
+                                    <X className="w-3 h-3" /> {errors.location}
+                                </p>}
+                                {suggestions.length > 0 && <p className="text-[10px] font-medium text-primary mt-1 animate-pulse flex items-center gap-1">
+                                    <Label className="cursor-default">Selecciona un resultado de la lista</Label>
+                                </p>}
                             </div>
 
                             <div className="grid gap-1.5">

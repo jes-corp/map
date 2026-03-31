@@ -8,31 +8,61 @@ import { Field } from "../ui/field";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useSocketStore } from "@/store/socketStore";
+import { getCookie } from "@/store/authStore";
 import * as LucideIcons from "lucide-react";
-import React from "react";
+import React, { useState } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function EventInformation() {
-    const { isEventInfoOpen, selectedEvent, setEventInfoOpen, setEventFormOpen } = useUIStore();
+    const { isEventInfoOpen, selectedEvent, setEventInfoOpen, setEventFormOpen, setSelectedEvent } = useUIStore();
     const user = useAuthStore(state => state.user);
-    const emitJoinEvent = useSocketStore(state => state.emitJoinEvent);
-    const emitLeaveEvent = useSocketStore(state => state.emitLeaveEvent);
+    const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
     if (!isEventInfoOpen || !selectedEvent) return null;
 
     const isOwner = user && (selectedEvent.userId === user.sub || selectedEvent.userId === user.id);
-    const isAttending = user && selectedEvent.attendees?.includes(user.id || user.sub || "");
+    const isAttending = user && selectedEvent.attendees?.some(u => u.id === (user.id || user.sub));
 
     const handleEdit = () => {
         setEventInfoOpen(false);
         setEventFormOpen(true);
     };
 
-    const handleAttend = () => {
-        if (!user) return;
-        if (isAttending) {
-            emitLeaveEvent(selectedEvent.id);
-        } else {
-            emitJoinEvent(selectedEvent.id);
+    const handleAttend = async () => {
+        if (!user || !selectedEvent) return;
+        
+        const token = getCookie("access_token");
+        if (!token) return;
+
+        setIsUpdatingAttendance(true);
+        try {
+            const res = await fetch(`${API_URL}/events/${selectedEvent.id}/attend`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (res.ok) {
+                const updatedEvent = await res.json();
+                
+                // Update selected event in UI store
+                setSelectedEvent(updatedEvent);
+                
+                // Update events list in Socket store to reflect changes globally (markers, profile, etc)
+                const socketStore = useSocketStore.getState();
+                const updatedEvents = socketStore.events.map(e => 
+                    e.id === updatedEvent.id ? updatedEvent : e
+                );
+                useSocketStore.setState({ events: updatedEvents });
+            } else {
+                console.error("Failed to toggle attendance");
+            }
+        } catch (error) {
+            console.error("Attendance toggle error:", error);
+        } finally {
+            setIsUpdatingAttendance(false);
         }
     };
 
@@ -124,15 +154,25 @@ export default function EventInformation() {
                             >
                                 <Edit3 className="w-4 h-4" /> Editar Evento
                             </Button>
+                        ) : isAttending ? (
+                            <div className="flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-xl border border-primary/20 bg-primary/5 text-primary font-bold shadow-xs animate-in fade-in zoom-in duration-300">
+                                <LucideIcons.CheckCircle2 className="w-5 h-5" />
+                                Estás asistiendo
+                            </div>
                         ) : (
                             <Button
                                 onClick={handleAttend}
-                                className={`font-semibold transition-all active:scale-[0.98] py-6 rounded-xl flex-1 shadow-md
-                                    ${isAttending 
-                                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700' 
-                                        : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                                disabled={isUpdatingAttendance}
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all active:scale-[0.98] py-6 rounded-xl flex-1 shadow-md"
                             >
-                                {isAttending ? 'Ya asisto (Cancelar)' : 'Asistir'}
+                                {isUpdatingAttendance ? (
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                                        Procesando...
+                                    </div>
+                                ) : (
+                                    'Asistir'
+                                )}
                             </Button>
                         )}
                         <Button

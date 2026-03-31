@@ -28,7 +28,7 @@ export default function Profile() {
 
     const userId = user?.id || user?.sub || "";
     const createdEvents = events.filter(e => e.userId === userId);
-    const attendingEvents = events.filter(e => e.attendees?.includes(userId));
+    const attendingEvents = events.filter(e => e.attendees?.some(u => u.id === userId));
     
     const displayEvents = filter === 'created' ? createdEvents : attendingEvents;
 

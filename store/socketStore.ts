@@ -13,7 +13,7 @@ export interface Event {
   datetime: string;
   icon: string;
   userId: string;
-  attendees: string[]; // List of user IDs attending
+  attendees: { id: string; username: string; [key: string]: any }[]; // List of user objects attending
 }
 
 interface UserLocation {

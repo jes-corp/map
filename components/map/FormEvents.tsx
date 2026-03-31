@@ -15,6 +15,9 @@ export default function FormEvents() {
     const { isEventFormOpen, selectedLocation, setEventFormOpen, resetEventForm, selectedEvent, setSelectedLocation } = useUIStore();
     const isRoutingMode = useRouteStore((state) => state.isRoutingMode);
     const emitCreateEvent = useSocketStore(state => state.emitCreateEvent);
+    const emitUpdateEvent = useSocketStore(state => state.emitUpdateEvent);
+    const emitDeleteEvent = useSocketStore(state => state.emitDeleteEvent);
+    
     const [selectedIcon, setSelectedIcon] = useState<string>("Map");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,14 +92,18 @@ export default function FormEvents() {
 
         setIsSubmitting(true);
         try {
-            const response = await emitCreateEvent({
+            const eventData = {
                 title,
                 description,
                 lat: selectedLocation.lat,
                 lng: selectedLocation.lng,
                 datetime,
                 icon: selectedIcon
-            });
+            };
+
+            const response = selectedEvent 
+                ? await emitUpdateEvent(selectedEvent.id, eventData)
+                : await emitCreateEvent(eventData);
 
             if (response.success) {
                 // Close form and reset
@@ -106,7 +113,27 @@ export default function FormEvents() {
                 setErrors({ server: response.message });
             }
         } catch (error) {
-            setErrors({ server: "Error al crear el evento. Inténtalo de nuevo." });
+            setErrors({ server: `Error al ${selectedEvent ? 'actualizar' : 'crear'} el evento. Inténtalo de nuevo.` });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!selectedEvent) return;
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este evento?")) return;
+
+        setIsSubmitting(true);
+        try {
+            const response = await emitDeleteEvent(selectedEvent.id);
+            if (response.success) {
+                setEventFormOpen(false);
+                handleReset();
+            } else {
+                setErrors({ server: response.message });
+            }
+        } catch (error) {
+            setErrors({ server: "Error al eliminar el evento." });
         } finally {
             setIsSubmitting(false);
         }
@@ -400,20 +427,32 @@ export default function FormEvents() {
                         </form>
                     </CardContent>
 
-                    <CardFooter className="pt-4 mt-auto border-t flex gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleReset}
-                            className="flex-1 font-semibold transition-transform active:scale-[0.98] gap-2"
-                        >
-                            <RotateCcw className="w-4 h-4" /> Restablecer
-                        </Button>
+                    <CardFooter className="pt-4 mt-auto border-t flex flex-wrap gap-2">
+                        {selectedEvent ? (
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={isSubmitting}
+                                className="flex-1 font-semibold transition-transform active:scale-[0.98] gap-2 min-w-[100px]"
+                            >
+                                <Trash className="w-4 h-4" /> Eliminar
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleReset}
+                                className="flex-1 font-semibold transition-transform active:scale-[0.98] gap-2 min-w-[100px]"
+                            >
+                                <RotateCcw className="w-4 h-4" /> Limpiar
+                            </Button>
+                        )}
                         <Button
                             onClick={handleSubmit}
                             type="button"
                             disabled={isSubmitting}
-                            className="flex-2 font-semibold shadow-sm transition-transform active:scale-[0.98] relative"
+                            className="flex-[2] font-semibold shadow-sm transition-transform active:scale-[0.98] relative min-w-[150px]"
                         >
                             {isSubmitting ? (
                                 <span className="flex items-center gap-2">

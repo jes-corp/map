@@ -37,6 +37,8 @@ interface SocketState {
   connect: (token?: string) => void;
   disconnect: () => void;
   emitCreateEvent: (eventData: Omit<Event, "id" | "userId" | "attendees">) => Promise<Response>;
+  emitUpdateEvent: (id: string, eventData: Partial<Omit<Event, "id" | "userId" | "attendees">>) => Promise<Response>;
+  emitDeleteEvent: (id: string) => Promise<Response>;
   emitUpdateLocation: (location: { lat: number; lng: number }) => void;
   emitJoinEvent: (eventId: string) => void;
   emitLeaveEvent: (eventId: string) => void;
@@ -110,6 +112,12 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         }));
       });
 
+      socket.on("events_deleted", (deletedIds: string[]) => {
+        set((state) => ({
+          events: state.events.filter(e => !deletedIds.includes(e.id))
+        }));
+      });
+
       socket.on("user_location_updated", (userData: UserLocation) => {
         set((state) => ({
           otherUsers: { ...state.otherUsers, [userData.userId]: userData },
@@ -149,6 +157,28 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       socket.emit("create_event", eventData, (response: Response) => {
         clearTimeout(timeout);
         resolve(response || { success: true, message: "Evento creado" });
+      });
+    });
+  },
+
+  emitUpdateEvent: (id, eventData) => {
+    const { socket } = get();
+    if (!socket?.connected) return Promise.resolve({ success: false, message: "Sin conexión" });
+
+    return new Promise((resolve) => {
+      socket.emit("update_event", { id, updateEventDto: eventData }, (response: any) => {
+        resolve(response?.success === false ? response : { success: true, message: "Evento actualizado" });
+      });
+    });
+  },
+
+  emitDeleteEvent: (id) => {
+    const { socket } = get();
+    if (!socket?.connected) return Promise.resolve({ success: false, message: "Sin conexión" });
+
+    return new Promise((resolve) => {
+      socket.emit("delete_event", id, (response: any) => {
+        resolve(response?.success === false ? response : { success: true, message: "Evento eliminado" });
       });
     });
   },

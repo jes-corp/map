@@ -161,3 +161,87 @@
   background-color: transparent !important;
   filter: invert(1) brightness(0.8) contrast(1.2) !important;
 }
+
+/* Intro.js UI Dark Mode Overrides */
+
+html.dark body .introjs-tooltip,
+html.dark .introjs-tooltip {
+  background-color: rgba(24, 24, 27, 0.95) !important; /* zinc-900 */
+  backdrop-filter: blur(12px) !important;
+  color: #f4f4f5 !important; /* zinc-100 */
+  border: 1px solid rgba(63, 63, 70, 0.5) !important; /* zinc-700 */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
+  border-radius: 12px !important;
+}
+
+html.dark .introjs-tooltip-title {
+  color: #f4f4f5 !important; 
+}
+
+html.dark .introjs-tooltiptext {
+  color: #d4d4d8 !important; /* zinc-300 */
+}
+
+/* Arrows */
+html.dark .introjs-arrow.top { border-bottom-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.top-right { border-bottom-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.top-left { border-bottom-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.bottom { border-top-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.bottom-right { border-top-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.bottom-left { border-top-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.left { border-right-color: rgba(24, 24, 27, 0.95) !important; }
+html.dark .introjs-arrow.right { border-left-color: rgba(24, 24, 27, 0.95) !important; }
+
+html.dark .introjs-tooltipbuttons {
+  border-top: 1px solid rgba(63, 63, 70, 0.5) !important;
+}
+
+html.dark .introjs-button {
+  background-color: transparent !important;
+  color: #d4d4d8 !important;
+  border: 1px solid rgba(63, 63, 70, 0.5) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+}
+
+html.dark .introjs-button:hover {
+  background-color: rgba(63, 63, 70, 0.5) !important;
+  color: #f4f4f5 !important;
+}
+
+html.dark .introjs-button.introjs-disabled,
+html.dark .introjs-button.introjs-disabled:hover {
+  background-color: transparent !important;
+  color: #52525b !important; /* zinc-600 */
+  border-color: rgba(63, 63, 70, 0.2) !important;
+  box-shadow: none !important;
+}
+
+html.dark .introjs-skipbutton {
+  color: #a1a1aa !important; /* zinc-400 */
+}
+
+/* Fix "Don't show this again" checkbox styling */
+html.dark .introjs-dontShowAgain,
+html.dark .introjs-dontShowAgain * {
+  color: #d4d4d8 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html.dark .introjs-progress {
+  background-color: #27272a !important; /* zinc-800 */
+}
+
+html.dark .introjs-progressbar {
+  background-color: #6366f1 !important; /* indigo-500 */
+}
+
+html.dark .introjs-bullets ul li a {
+  background: #3f3f46 !important; /* zinc-700 */
+}
+
+html.dark .introjs-bullets ul li a.active {
+  background: #6366f1 !important; /* indigo-500 */
+}

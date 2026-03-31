@@ -13,6 +13,7 @@ export interface Event {
   datetime: string;
   icon: string;
   userId: string;
+  attendees: string[]; // List of user IDs attending
 }
 
 interface UserLocation {
@@ -35,8 +36,10 @@ interface SocketState {
   // Actions
   connect: (token?: string) => void;
   disconnect: () => void;
-  emitCreateEvent: (eventData: Omit<Event, "id" | "userId">) => Promise<Response>;
+  emitCreateEvent: (eventData: Omit<Event, "id" | "userId" | "attendees">) => Promise<Response>;
   emitUpdateLocation: (location: { lat: number; lng: number }) => void;
+  emitJoinEvent: (eventId: string) => void;
+  emitLeaveEvent: (eventId: string) => void;
 }
 
 export const useSocketStore = create<SocketState>((set, get) => ({
@@ -92,11 +95,19 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       });
 
       socket.on("event_created", (newEvent: Event) => {
-        set((state) => ({ events: [newEvent, ...state.events] }));
+        set((state) => ({ 
+          events: [{ ...newEvent, attendees: newEvent.attendees || [] }, ...state.events] 
+        }));
       });
 
       socket.on("all_events", (allEvents: Event[]) => {
-        set({ events: allEvents });
+        set({ events: allEvents.map(e => ({ ...e, attendees: e.attendees || [] })) });
+      });
+
+      socket.on("event_updated", (updatedEvent: Event) => {
+        set((state) => ({
+          events: state.events.map(e => e.id === updatedEvent.id ? { ...updatedEvent, attendees: updatedEvent.attendees || [] } : e)
+        }));
       });
 
       socket.on("user_location_updated", (userData: UserLocation) => {
@@ -150,6 +161,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }
     } catch {
       // Silently swallow — geolocation is non-critical
+    }
+  },
+
+  emitJoinEvent: (eventId) => {
+    const { socket } = get();
+    if (socket?.connected) {
+      socket.emit("join_event", { eventId });
+    }
+  },
+
+  emitLeaveEvent: (eventId) => {
+    const { socket } = get();
+    if (socket?.connected) {
+      socket.emit("leave_event", { eventId });
     }
   },
 }));

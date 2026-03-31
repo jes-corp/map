@@ -7,20 +7,33 @@ import { Calendar, MapPin, Type, Image as ImageIcon, X, Edit3, Clock } from "luc
 import { Field } from "../ui/field";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/authStore";
+import { useSocketStore } from "@/store/socketStore";
 import * as LucideIcons from "lucide-react";
 import React from "react";
 
 export default function EventInformation() {
     const { isEventInfoOpen, selectedEvent, setEventInfoOpen, setEventFormOpen } = useUIStore();
     const user = useAuthStore(state => state.user);
+    const emitJoinEvent = useSocketStore(state => state.emitJoinEvent);
+    const emitLeaveEvent = useSocketStore(state => state.emitLeaveEvent);
 
     if (!isEventInfoOpen || !selectedEvent) return null;
 
     const isOwner = user && (selectedEvent.userId === user.sub || selectedEvent.userId === user.id);
+    const isAttending = user && selectedEvent.attendees?.includes(user.id || user.sub || "");
 
     const handleEdit = () => {
         setEventInfoOpen(false);
         setEventFormOpen(true);
+    };
+
+    const handleAttend = () => {
+        if (!user) return;
+        if (isAttending) {
+            emitLeaveEvent(selectedEvent.id);
+        } else {
+            emitJoinEvent(selectedEvent.id);
+        }
     };
 
     const IconComponent = (LucideIcons as any)[selectedEvent.icon] || LucideIcons.MapPin;
@@ -38,10 +51,8 @@ export default function EventInformation() {
             </div>
             <div className="absolute top-20 right-8 z-10">
                 <Card className="max-w-md w-[380px] h-auto max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border-muted/50 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-                    {/* Header Image Area */}
                     <Field className="relative">
                         <div className="w-full h-40 bg-muted/40 flex flex-col items-center justify-center relative border-b">
-                            {/* In a real app we'd show the event image here */}
                             <div className="absolute inset-0 bg-linear-to-t from-background/80 to-transparent z-0" />
                             <div className="z-10 flex flex-col items-center">
                                 <div className="p-4 bg-primary/10 rounded-2xl border-2 border-primary/20 mb-3 shadow-inner">
@@ -106,20 +117,22 @@ export default function EventInformation() {
                     </CardContent>
 
                     <CardFooter className="pt-4 pb-6 mt-auto border-t bg-muted/5 flex gap-3">
-                        {isOwner && (
+                        {isOwner ? (
                             <Button
                                 onClick={handleEdit}
                                 className="flex-1 font-bold shadow-md shadow-primary/20 transition-all active:scale-[0.98] gap-2 py-6 rounded-xl"
                             >
                                 <Edit3 className="w-4 h-4" /> Editar Evento
                             </Button>
-                        )}
-                        {!isOwner && (
+                        ) : (
                             <Button
-                                onClick={() => setEventInfoOpen(false)}
-                                className={`font-semibold transition-transform active:scale-[0.98] py-6 rounded-xl ${isOwner ? 'w-1/3' : 'flex-1'}`}
+                                onClick={handleAttend}
+                                className={`font-semibold transition-all active:scale-[0.98] py-6 rounded-xl flex-1 shadow-md
+                                    ${isAttending 
+                                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700' 
+                                        : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
                             >
-                                Asistir
+                                {isAttending ? 'Ya asisto (Cancelar)' : 'Asistir'}
                             </Button>
                         )}
                         <Button
@@ -129,7 +142,6 @@ export default function EventInformation() {
                         >
                             Cerrar
                         </Button>
-
                     </CardFooter>
                 </Card>
             </div>

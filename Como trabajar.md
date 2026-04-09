@@ -40,6 +40,9 @@ git commit -m "Agregué nueva funcionalidad"
 git push origin feature/mi-cambio
 ```
 
+4 . Hacer la pr
+Luego en el momento de hacer la pr se debe verificar que la rama a la que apunta es la rama dev.
+
 > [!IMPORTANT]
 > Hacer un commit o push cada que tengan algo terminado, para que el resto de de desarrolladores pueda tener el cambio.
 

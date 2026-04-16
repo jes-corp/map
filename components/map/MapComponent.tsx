@@ -155,7 +155,7 @@ const CARTO_VOYAGER_STYLE =
 const CARTO_DARK_MATTER_STYLE =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
-const MIN_ZOOM_FOR_MARKERS = 24;
+const MIN_ZOOM_FOR_MARKERS = 8;
 
 import { useThemeStore } from "@/store/themeStore";
 

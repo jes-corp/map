@@ -14,7 +14,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuTrigger
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Plus } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
@@ -42,21 +42,34 @@ interface OSRMResult {
 }
 
 // Haversine distance in km
-function getHaversineDistance(lon1: number, lat1: number, lon2: number, lat2: number): number {
+function getHaversineDistance(
+  lon1: number,
+  lat1: number,
+  lon2: number,
+  lat2: number,
+): number {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // Ultimate fallback: straight line geometry + math estimation
-function generateMathematicalFallback(waypoints: [number, number][]): OSRMResult {
+function generateMathematicalFallback(
+  waypoints: [number, number][],
+): OSRMResult {
   let totalDistanceDescKm = 0;
   for (let i = 0; i < waypoints.length - 1; i++) {
     totalDistanceDescKm += getHaversineDistance(
-      waypoints[i][0], waypoints[i][1],
-      waypoints[i + 1][0], waypoints[i + 1][1]
+      waypoints[i][0],
+      waypoints[i][1],
+      waypoints[i + 1][0],
+      waypoints[i + 1][1],
     );
   }
 
@@ -75,22 +88,27 @@ function generateMathematicalFallback(waypoints: [number, number][]): OSRMResult
 
 async function fetchOSRMRoute(
   waypoints: [number, number][],
-  profile: OSRMProfile = "driving"
+  profile: OSRMProfile = "driving",
 ): Promise<OSRMResult> {
   const coords = waypoints.map(([lng, lat]) => `${lng},${lat}`).join(";");
 
   // ── Engine 1: OSRM Public (4s timeout) ──────────────────────────────────
   try {
     const base = OSRM_ENDPOINTS[profile];
-    const res = await fetch(`${base}/${coords}?overview=full&geometries=geojson`, {
-      signal: AbortSignal.timeout(4000),
-    });
+    const res = await fetch(
+      `${base}/${coords}?overview=full&geometries=geojson`,
+      {
+        signal: AbortSignal.timeout(4000),
+      },
+    );
     if (res.ok) {
       const data = await res.json();
       if (data.routes?.length > 0) return parseOSRMResponse(data.routes[0]);
     }
   } catch (err) {
-    console.warn("[Routing] Engine 1 (OSRM) timeout or fail. Trying engine 2...");
+    console.warn(
+      "[Routing] Engine 1 (OSRM) timeout or fail. Trying engine 2...",
+    );
   }
 
   // ── Engine 2: Mapbox Directions API (4s timeout) ────────────────────────
@@ -105,7 +123,9 @@ async function fetchOSRMRoute(
         if (data.routes?.length > 0) return parseOSRMResponse(data.routes[0]);
       }
     } catch (err) {
-      console.warn("[Routing] Engine 2 (Mapbox) timeout or fail. Using math fallback...");
+      console.warn(
+        "[Routing] Engine 2 (Mapbox) timeout or fail. Using math fallback...",
+      );
     }
   }
 
@@ -123,9 +143,9 @@ function parseOSRMResponse(route: any): OSRMResult {
 
 // Marker colors for route waypoints
 const WAYPOINT_COLORS = {
-  first: "#10b981",  // green
-  last: "#ef4444",   // red
-  mid: "#6366f1",    // indigo
+  first: "#10b981", // green
+  last: "#ef4444", // red
+  mid: "#6366f1", // indigo
 };
 
 const FALLBACK_CENTER: [number, number] = [-74.7813, 10.9685];
@@ -135,7 +155,7 @@ const CARTO_VOYAGER_STYLE =
 const CARTO_DARK_MATTER_STYLE =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
-const MIN_ZOOM_FOR_MARKERS = 14;
+const MIN_ZOOM_FOR_MARKERS = 24;
 
 import { useThemeStore } from "@/store/themeStore";
 
@@ -147,37 +167,55 @@ export default function MapComponent({ className }: MapComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const selectionMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const theme = useThemeStore(state => state.theme);
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const theme = useThemeStore((state) => state.theme);
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   // Resolve current theme
   useEffect(() => {
-    const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setResolvedTheme(isDark ? 'dark' : 'light');
+    const isDark =
+      theme === "dark" ||
+      (theme === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setResolvedTheme(isDark ? "dark" : "light");
 
     if (theme === "system") {
       const matcher = window.matchMedia("(prefers-color-scheme: dark)");
-      const onChange = (e: MediaQueryListEvent) => setResolvedTheme(e.matches ? 'dark' : 'light');
-      matcher.addEventListener('change', onChange);
-      return () => matcher.removeEventListener('change', onChange);
+      const onChange = (e: MediaQueryListEvent) =>
+        setResolvedTheme(e.matches ? "dark" : "light");
+      matcher.addEventListener("change", onChange);
+      return () => matcher.removeEventListener("change", onChange);
     }
   }, [theme]);
 
   // Refs to track dynamic markers
   const eventMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [lastRightClickCoords, setLastRightClickCoords] = useState<{ lng: number, lat: number } | null>(null);
+  const [lastRightClickCoords, setLastRightClickCoords] = useState<{
+    lng: number;
+    lat: number;
+  } | null>(null);
 
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
   const [currentZoom, setCurrentZoom] = useState(FALLBACK_ZOOM);
 
   // Route marker refs
   const routeMarkersRef = useRef<maplibregl.Marker[]>([]);
   const styleLoadedRef = useRef(false);
 
-  const { setEventFormOpen, setSelectedLocation, isEventFormOpen, selectedLocation, setSelectedEvent, openEventForm, mapView, setMapView } = useUIStore();
+  const {
+    setEventFormOpen,
+    setSelectedLocation,
+    isEventFormOpen,
+    selectedLocation,
+    setSelectedEvent,
+    openEventForm,
+    mapView,
+    setMapView,
+  } = useUIStore();
   const events = useSocketStore((state) => state.events);
-  const emitUpdateLocation = useSocketStore((state) => state.emitUpdateLocation);
+  const emitUpdateLocation = useSocketStore(
+    (state) => state.emitUpdateLocation,
+  );
 
   // Route store
   const isRoutingMode = useRouteStore((state) => state.isRoutingMode);
@@ -188,7 +226,9 @@ export default function MapComponent({ className }: MapComponentProps) {
   const clearRoute = useRouteStore((state) => state.clearRoute);
   const transportMode = useRouteStore((state) => state.transportMode);
   const pendingFlyTo = useRouteStore((state) => state.pendingFlyTo);
-  const consumePendingFlyTo = useRouteStore((state) => state.consumePendingFlyTo);
+  const consumePendingFlyTo = useRouteStore(
+    (state) => state.consumePendingFlyTo,
+  );
 
   // FlyTo when a geocode sets pendingFlyTo
   useEffect(() => {
@@ -210,8 +250,9 @@ export default function MapComponent({ className }: MapComponentProps) {
     if (selectedLocation) {
       if (!selectionMarkerRef.current) {
         // Create marker if it doesn't exist
-        const el = document.createElement('div');
-        el.className = 'w-10 h-10 flex items-center justify-center p-1.5 bg-white/90 backdrop-blur rounded-full shadow-2xl border-2 border-primary z-30 animate-in zoom-in duration-300';
+        const el = document.createElement("div");
+        el.className =
+          "w-10 h-10 flex items-center justify-center p-1.5 bg-white/90 backdrop-blur rounded-full shadow-2xl border-2 border-primary z-30 animate-in zoom-in duration-300";
         el.innerHTML = `<div class="w-full h-full bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-inner">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.136-7.374 11.71a1 1 0 0 1-1.252 0C9.539 20.136 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
         </div>`;
@@ -221,7 +262,10 @@ export default function MapComponent({ className }: MapComponentProps) {
           .addTo(mapRef.current);
       } else {
         // Update marker position
-        selectionMarkerRef.current.setLngLat([selectedLocation.lng, selectedLocation.lat]);
+        selectionMarkerRef.current.setLngLat([
+          selectedLocation.lng,
+          selectedLocation.lat,
+        ]);
       }
     } else {
       // Clear marker
@@ -248,7 +292,8 @@ export default function MapComponent({ className }: MapComponentProps) {
   // Style changer
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
-    const styleUrl = resolvedTheme === "dark" ? CARTO_DARK_MATTER_STYLE : CARTO_VOYAGER_STYLE;
+    const styleUrl =
+      resolvedTheme === "dark" ? CARTO_DARK_MATTER_STYLE : CARTO_VOYAGER_STYLE;
 
     fetch(styleUrl)
       .then((r) => r.json())
@@ -262,9 +307,8 @@ export default function MapComponent({ className }: MapComponentProps) {
     if (!containerRef.current || mapRef.current) return;
 
     // Obtener estilo instanciado de una vez para evitar flash
-    const initialStyleUrl = resolvedTheme === "dark"
-      ? CARTO_DARK_MATTER_STYLE
-      : CARTO_VOYAGER_STYLE;
+    const initialStyleUrl =
+      resolvedTheme === "dark" ? CARTO_DARK_MATTER_STYLE : CARTO_VOYAGER_STYLE;
 
     // Fetch style and inject projection for MapLibre v5 compatibility
     fetch(initialStyleUrl)
@@ -293,12 +337,18 @@ export default function MapComponent({ className }: MapComponentProps) {
         if (navigator.geolocation) {
           navigator.geolocation.watchPosition(
             (pos) => {
-              const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
-              emitUpdateLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+              const lngLat: [number, number] = [
+                pos.coords.longitude,
+                pos.coords.latitude,
+              ];
+              emitUpdateLocation({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              });
               useRouteStore.getState().setUserLocation(lngLat);
             },
             undefined,
-            { enableHighAccuracy: true }
+            { enableHighAccuracy: true },
           );
         }
 
@@ -332,7 +382,12 @@ export default function MapComponent({ className }: MapComponentProps) {
             const store = useRouteStore.getState();
             // Guard: waypoint must still exist at the captured index
             if (capturedIdx >= 0 && capturedIdx < store.waypoints.length) {
-              store.updateWaypointLngLat(capturedIdx, lngLat, streetName, streetName);
+              store.updateWaypointLngLat(
+                capturedIdx,
+                lngLat,
+                streetName,
+                streetName,
+              );
             }
           });
         });
@@ -344,8 +399,8 @@ export default function MapComponent({ className }: MapComponentProps) {
       selectionMarkerRef.current?.remove();
 
       // Cleanup dynamic markers
-      Object.values(eventMarkersRef.current).forEach(m => m.remove());
-      routeMarkersRef.current.forEach(m => m.remove());
+      Object.values(eventMarkersRef.current).forEach((m) => m.remove());
+      routeMarkersRef.current.forEach((m) => m.remove());
     };
   }, []);
 
@@ -393,7 +448,9 @@ export default function MapComponent({ className }: MapComponentProps) {
       try {
         if (map.getLayer("osrm-route-line")) map.removeLayer("osrm-route-line");
         if (map.getSource("osrm-route")) map.removeSource("osrm-route");
-      } catch { /* style not ready */ }
+      } catch {
+        /* style not ready */
+      }
       return;
     }
 
@@ -445,7 +502,7 @@ export default function MapComponent({ className }: MapComponentProps) {
 
           if (map.getSource("osrm-route")) {
             (map.getSource("osrm-route") as maplibregl.GeoJSONSource).setData(
-              sourceData
+              sourceData,
             );
           } else {
             map.addSource("osrm-route", {
@@ -472,7 +529,7 @@ export default function MapComponent({ className }: MapComponentProps) {
           const allCoords = geometry.coordinates as [number, number][];
           const bounds = allCoords.reduce(
             (b, c) => b.extend(c),
-            new maplibregl.LngLatBounds(allCoords[0], allCoords[0])
+            new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
           );
           map.fitBounds(bounds, { padding: 60, duration: 600 });
         })
@@ -497,7 +554,9 @@ export default function MapComponent({ className }: MapComponentProps) {
       try {
         if (map.getLayer("osrm-route-line")) map.removeLayer("osrm-route-line");
         if (map.getSource("osrm-route")) map.removeSource("osrm-route");
-      } catch { /* style not ready */ }
+      } catch {
+        /* style not ready */
+      }
     }
   }, [isRoutingMode]);
 
@@ -505,37 +564,59 @@ export default function MapComponent({ className }: MapComponentProps) {
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
 
-    console.log("Syncing event markers, current events count:", events.length, "zoom:", currentZoom.toFixed(1));
+    console.log(
+      "Syncing event markers, current events count:",
+      events.length,
+      "zoom:",
+      currentZoom.toFixed(1),
+    );
 
     // Create new markers or skip existing
-    events.forEach(event => {
+    events.forEach((event) => {
       if (!eventMarkersRef.current[event.id]) {
-        console.log("Creating marker for event:", event.title, "at", event.lat, event.lng);
-        const el = document.createElement('div');
+        console.log(
+          "Creating marker for event:",
+          event.title,
+          "at",
+          event.lat,
+          event.lng,
+        );
+        const el = document.createElement("div");
 
         // Check if event belongs to current user
-        const isOwner = user && (event.userId === user.sub || event.userId === user.id);
+        const isOwner =
+          user && (event.userId === user.sub || event.userId === user.id);
 
         el.className = `flex items-center justify-center rounded-full w-8 h-8 shadow-lg border-2 pointer-events-auto 
-        ${isOwner ? 'bg-blue-500 text-primary-foreground border-white' : 'bg-primary text-primary-foreground border-black/50'
+        ${isOwner
+            ? "bg-blue-500 text-primary-foreground border-white"
+            : "bg-primary text-primary-foreground border-black/50"
           }`;
-        el.style.pointerEvents = 'auto';
-        el.style.cursor = 'pointer';
+        el.style.pointerEvents = "auto";
+        el.style.cursor = "pointer";
 
         // Render icon
-        const IconComponent = (LucideIcons as any)[event.icon] || LucideIcons.MapPin;
+        const IconComponent =
+          (LucideIcons as any)[event.icon] || LucideIcons.MapPin;
         const root = createRoot(el);
-        root.render(React.createElement(IconComponent as React.FC<any>, { size: 18, style: { pointerEvents: 'none' } }));
+        root.render(
+          React.createElement(IconComponent as React.FC<any>, {
+            size: 18,
+            style: { pointerEvents: "none" },
+          }),
+        );
 
         // Click handler to select event
-        el.addEventListener('click', (e) => {
+        el.addEventListener("click", (e) => {
           console.log("Marker clicked:", event.title);
           e.stopPropagation();
           setSelectedEvent(event);
         });
 
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([event.lng, event.lat]);
+        const marker = new maplibregl.Marker({ element: el }).setLngLat([
+          event.lng,
+          event.lat,
+        ]);
 
         // Only add to map if zoom is high enough
         if (currentZoom >= MIN_ZOOM_FOR_MARKERS) {
@@ -556,8 +637,8 @@ export default function MapComponent({ className }: MapComponentProps) {
     });
 
     // Remove stale markers
-    const eventIds = new Set(events.map(e => e.id));
-    Object.keys(eventMarkersRef.current).forEach(id => {
+    const eventIds = new Set(events.map((e) => e.id));
+    Object.keys(eventMarkersRef.current).forEach((id) => {
       if (!eventIds.has(id)) {
         eventMarkersRef.current[id].remove();
         delete eventMarkersRef.current[id];
@@ -565,10 +646,12 @@ export default function MapComponent({ className }: MapComponentProps) {
     });
   }, [events, mapLoaded, currentZoom]);
 
-
   return (
     <ContextMenu>
-      <ContextMenuTrigger onContextMenu={handleContextMenu} className="w-full h-full block">
+      <ContextMenuTrigger
+        onContextMenu={handleContextMenu}
+        className="w-full h-full block"
+      >
         <div
           ref={containerRef}
           className={className ?? "w-full h-full"}

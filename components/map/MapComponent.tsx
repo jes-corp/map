@@ -135,6 +135,8 @@ const CARTO_VOYAGER_STYLE =
 const CARTO_DARK_MATTER_STYLE =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
+const MIN_ZOOM_FOR_MARKERS = 14;
+
 import { useThemeStore } from "@/store/themeStore";
 
 interface MapComponentProps {
@@ -167,6 +169,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   const [lastRightClickCoords, setLastRightClickCoords] = useState<{ lng: number, lat: number } | null>(null);
 
   const user = useAuthStore(state => state.user);
+  const [currentZoom, setCurrentZoom] = useState(FALLBACK_ZOOM);
 
   // Route marker refs
   const routeMarkersRef = useRef<maplibregl.Marker[]>([]);
@@ -303,8 +306,13 @@ export default function MapComponent({ className }: MapComponentProps) {
         map.on("moveend", () => {
           const c = map.getCenter();
           const z = map.getZoom();
+          setCurrentZoom(z);
           useRouteStore.getState().setMapCenter([c.lng, c.lat]);
           setMapView([c.lng, c.lat], z);
+        });
+
+        map.on("zoom", () => {
+          setCurrentZoom(map.getZoom());
         });
 
         map.on("click", (e) => {
@@ -497,7 +505,7 @@ export default function MapComponent({ className }: MapComponentProps) {
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
 
-    console.log("Syncing event markers, current events count:", events.length);
+    console.log("Syncing event markers, current events count:", events.length, "zoom:", currentZoom.toFixed(1));
 
     // Create new markers or skip existing
     events.forEach(event => {
@@ -527,10 +535,23 @@ export default function MapComponent({ className }: MapComponentProps) {
         });
 
         const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([event.lng, event.lat])
-          .addTo(mapRef.current!);
+          .setLngLat([event.lng, event.lat]);
+
+        // Only add to map if zoom is high enough
+        if (currentZoom >= MIN_ZOOM_FOR_MARKERS) {
+          marker.addTo(mapRef.current!);
+        }
 
         eventMarkersRef.current[event.id] = marker;
+      } else {
+        // Update visibility based on zoom
+        const marker = eventMarkersRef.current[event.id];
+        const isOnMap = marker.getElement()?.parentNode != null;
+        if (currentZoom >= MIN_ZOOM_FOR_MARKERS && !isOnMap) {
+          marker.addTo(mapRef.current!);
+        } else if (currentZoom < MIN_ZOOM_FOR_MARKERS && isOnMap) {
+          marker.remove();
+        }
       }
     });
 
@@ -542,7 +563,7 @@ export default function MapComponent({ className }: MapComponentProps) {
         delete eventMarkersRef.current[id];
       }
     });
-  }, [events, mapLoaded]);
+  }, [events, mapLoaded, currentZoom]);
 
 
   return (
